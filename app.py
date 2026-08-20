@@ -9,21 +9,20 @@ st.set_page_config(
 )
 
 # ----------------- Authentication Gate -----------------
-# Set your password (or pull from st.secrets["APP_PASSWORD"])
+# ----------------- Authentication Gate -----------------
 ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD", "mysecretpassword123")
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-
 def check_password():
-    if st.session_state.password_input == ADMIN_PASSWORD:
+    # Use .get() to safely retrieve the value without raising AttributeError
+    if st.session_state.get("password_input", "") == ADMIN_PASSWORD:
         st.session_state.authenticated = True
-        del st.session_state.password_input  # Clear password from session
     else:
         st.session_state.authenticated = False
         st.error("❌ Incorrect password. Please try again.")
-
+# -------------------------------------------------------
 
 if not st.session_state.authenticated:
     st.title("🔒 Login Required")
