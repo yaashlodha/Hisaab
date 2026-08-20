@@ -7,6 +7,41 @@ import streamlit as st
 st.set_page_config(
     page_title="Hisaab Tracker", page_icon="💰", layout="centered"
 )
+
+# ----------------- Authentication Gate -----------------
+# Set your password (or pull from st.secrets["APP_PASSWORD"])
+ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD", "mysecretpassword123")
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+
+def check_password():
+    if st.session_state.password_input == ADMIN_PASSWORD:
+        st.session_state.authenticated = True
+        del st.session_state.password_input  # Clear password from session
+    else:
+        st.session_state.authenticated = False
+        st.error("❌ Incorrect password. Please try again.")
+
+
+if not st.session_state.authenticated:
+    st.title("🔒 Login Required")
+    st.text_input(
+        "Enter Password:",
+        type="password",
+        on_change=check_password,
+        key="password_input",
+    )
+    st.button("Log In", on_click=check_password)
+    st.stop()  # Halt execution until authenticated
+
+# ----------------- Authenticated App -----------------
+st.sidebar.button(
+    "Log Out",
+    on_click=lambda: st.session_state.update(authenticated=False),
+)
+
 st.title("💰 Hisaab Tracker")
 
 # Google Sheets Authentication
@@ -28,7 +63,7 @@ def get_sheet():
         )
 
     client = gspread.authorize(creds)
-    return client.open("Hisaab")  # Replace with exact Google Sheet name
+    return client.open("Hisaab")
 
 
 try:
@@ -77,7 +112,6 @@ with tab_status:
     if st.button("Fetch Balance"):
         try:
             ws = spreadsheet.worksheet(selected_person)
-            # Read cell E2 for the person's net total
             total_val = ws.acell("E2").value
             total_amount = float(total_val) if total_val else 0.0
 
@@ -103,7 +137,6 @@ with tab_status:
                     delta_color="off",
                 )
 
-            # Show recent transactions
             records = ws.get_all_values()
             if len(records) > 1:
                 df = pd.DataFrame(records[1:], columns=records[0])
@@ -124,7 +157,9 @@ with tab_overview:
                     numeric_val = float(val) if val else 0.0
                 except Exception:
                     numeric_val = 0.0
-                balances.append({"Person": name, "Net Balance (₹)": numeric_val})
+                balances.append(
+                    {"Person": name, "Net Balance (₹)": numeric_val}
+                )
 
             df_all = pd.DataFrame(balances)
             grand_total = df_all["Net Balance (₹)"].sum()
