@@ -71,7 +71,7 @@ except Exception as e:
     st.error(f"Error connecting to Google Sheets: {e}")
     st.stop()
 
-PEOPLE = ["Praveen", "Mehul", "Rahil", "Deesha", "Hridaya", "Sayam"]
+PEOPLE = ["Praveen", "Mehul", "Rahil", "Deesha", "Hridaya", "Sayam","Jainam"]
 
 # Tab Navigation
 tab_entry, tab_status, tab_overview = st.tabs(
