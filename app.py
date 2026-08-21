@@ -9,7 +9,6 @@ st.set_page_config(
 )
 
 # ----------------- Authentication Gate -----------------
-# ----------------- Authentication Gate -----------------
 ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD", "mysecretpassword123")
 
 if "authenticated" not in st.session_state:
@@ -118,15 +117,15 @@ with tab_status:
                 st.metric(
                     label=f"Balance with {selected_person}",
                     value=f"₹{total_amount:,.2f}",
-                    delta="They owe you",
-                    delta_color="normal",
+                    delta="You owe them",
+                    delta_color="inverse",
                 )
             elif total_amount < 0:
                 st.metric(
                     label=f"Balance with {selected_person}",
                     value=f"₹{abs(total_amount):,.2f}",
-                    delta="You owe them",
-                    delta_color="inverse",
+                    delta="They owe you ",
+                    delta_color="normal",
                 )
             else:
                 st.metric(
