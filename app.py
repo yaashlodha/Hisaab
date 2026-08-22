@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 # ----------------- Authentication Gate -----------------
-ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD", "mysecretpassword123")
+ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD")
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
