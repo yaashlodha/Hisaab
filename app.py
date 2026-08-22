@@ -14,25 +14,25 @@ ADMIN_PASSWORD = st.secrets.get("APP_PASSWORD", "mysecretpassword123")
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+
 def check_password():
-    # Use .get() to safely retrieve the value without raising AttributeError
     if st.session_state.get("password_input", "") == ADMIN_PASSWORD:
         st.session_state.authenticated = True
     else:
         st.session_state.authenticated = False
         st.error("❌ Incorrect password. Please try again.")
-# -------------------------------------------------------
+
 
 if not st.session_state.authenticated:
     st.title("🔒 Login Required")
     st.text_input(
         "Enter Password:",
         type="password",
-        on_change=check_password,
         key="password_input",
+        on_change=check_password,
     )
     st.button("Log In", on_click=check_password)
-    st.stop()  # Halt execution until authenticated
+    st.stop()
 
 # ----------------- Authenticated App -----------------
 st.sidebar.button(
@@ -61,7 +61,7 @@ def get_sheet():
         )
 
     client = gspread.authorize(creds)
-    return client.open("Hisaab")
+    return client.open("Hisaab")  # Replace with exact Google Sheet name
 
 
 try:
@@ -70,79 +70,96 @@ except Exception as e:
     st.error(f"Error connecting to Google Sheets: {e}")
     st.stop()
 
-PEOPLE = ["Praveen", "Mehul", "Rahil", "Deesha", "Hridaya", "Sayam","Jainam"]
+# Dynamically fetch all existing sheets/users (ignoring summary sheets if any)
+EXCLUDED_SHEETS = ["Total", "Summary", "Overview"]
+all_worksheets = [ws.title for ws in spreadsheet.worksheets()]
+PEOPLE = [name for name in all_worksheets if name not in EXCLUDED_SHEETS]
 
 # Tab Navigation
-tab_entry, tab_status, tab_overview = st.tabs(
-    ["➕ Add Entry", "🔍 Check Person", "📊 All Totals"]
+tab_entry, tab_status, tab_overview, tab_add_user = st.tabs(
+    ["➕ Add Entry", "🔍 Check Person", "📊 All Totals", "👤 Add User"]
 )
 
 # 1. Add Entry Tab
 with tab_entry:
-    with st.form("entry_form", clear_on_submit=True):
-        person = st.selectbox("Select Person", PEOPLE)
-        date_val = st.date_input("Date", value=datetime.date.today())
-        owed_by_me = st.number_input(
-            "Amount Owed by Me (₹)", min_value=0.0, step=10.0, format="%.2f"
+    if not PEOPLE:
+        st.warning(
+            "No users found. Please add a user first in the '👤 Add User' tab."
         )
-        owed_by_them = st.number_input(
-            "Amount Owed by Them (₹)", min_value=0.0, step=10.0, format="%.2f"
-        )
-        reason = st.text_input("Reason / Notes")
+    else:
+        with st.form("entry_form", clear_on_submit=True):
+            person = st.selectbox("Select Person", PEOPLE)
+            date_val = st.date_input("Date", value=datetime.date.today())
+            owed_by_me = st.number_input(
+                "Amount Owed by Me (₹)",
+                min_value=0.0,
+                step=10.0,
+                format="%.2f",
+            )
+            owed_by_them = st.number_input(
+                "Amount Owed by Them (₹)",
+                min_value=0.0,
+                step=10.0,
+                format="%.2f",
+            )
+            reason = st.text_input("Reason / Notes")
 
-        submit_button = st.form_submit_button("Submit Entry")
+            submit_button = st.form_submit_button("Submit Entry")
 
-    if submit_button:
-        try:
-            ws = spreadsheet.worksheet(person)
-            row_data = [str(date_val), owed_by_me, owed_by_them, reason]
-            ws.append_row(row_data, value_input_option="USER_ENTERED")
-            st.success(f"Entry saved to **{person}**'s sheet successfully!")
-        except Exception as e:
-            st.error(f"Failed to append entry: {e}")
+        if submit_button:
+            try:
+                ws = spreadsheet.worksheet(person)
+                row_data = [str(date_val), owed_by_me, owed_by_them, reason]
+                ws.append_row(row_data, value_input_option="USER_ENTERED")
+                st.success(f"Entry saved to **{person}**'s sheet successfully!")
+            except Exception as e:
+                st.error(f"Failed to append entry: {e}")
 
 # 2. Individual Person Balance Tab
 with tab_status:
-    selected_person = st.selectbox(
-        "Choose a person to check balance:", PEOPLE, key="check_person"
-    )
+    if not PEOPLE:
+        st.warning("No users available.")
+    else:
+        selected_person = st.selectbox(
+            "Choose a person to check balance:", PEOPLE, key="check_person"
+        )
 
-    if st.button("Fetch Balance"):
-        try:
-            ws = spreadsheet.worksheet(selected_person)
-            total_val = ws.acell("E2").value
-            total_amount = float(total_val) if total_val else 0.0
+        if st.button("Fetch Balance"):
+            try:
+                ws = spreadsheet.worksheet(selected_person)
+                total_val = ws.acell("E2").value
+                total_amount = float(total_val) if total_val else 0.0
 
-            if total_amount > 0:
-                st.metric(
-                    label=f"Balance with {selected_person}",
-                    value=f"₹{total_amount:,.2f}",
-                    delta="They owe you",
-                    delta_color="normal",
-                )
-            elif total_amount < 0:
-                st.metric(
-                    label=f"Balance with {selected_person}",
-                    value=f"₹{abs(total_amount):,.2f}",
-                    delta="You owe them",
-                    delta_color="inverse",
-                )
-            else:
-                st.metric(
-                    label=f"Balance with {selected_person}",
-                    value="₹0.00",
-                    delta="All settled up",
-                    delta_color="off",
-                )
+                if total_amount > 0:
+                    st.metric(
+                        label=f"Balance with {selected_person}",
+                        value=f"₹{total_amount:,.2f}",
+                        delta="They owe you",
+                        delta_color="normal",
+                    )
+                elif total_amount < 0:
+                    st.metric(
+                        label=f"Balance with {selected_person}",
+                        value=f"₹{abs(total_amount):,.2f}",
+                        delta="You owe them",
+                        delta_color="inverse",
+                    )
+                else:
+                    st.metric(
+                        label=f"Balance with {selected_person}",
+                        value="₹0.00",
+                        delta="All settled up",
+                        delta_color="off",
+                    )
 
-            records = ws.get_all_values()
-            if len(records) > 1:
-                df = pd.DataFrame(records[1:], columns=records[0])
-                st.write("**Recent Entries:**")
-                st.dataframe(df.tail(5), use_container_width=True)
+                records = ws.get_all_values()
+                if len(records) > 1:
+                    df = pd.DataFrame(records[1:], columns=records[0])
+                    st.write("**Recent Entries:**")
+                    st.dataframe(df.tail(5), use_container_width=True)
 
-        except Exception as e:
-            st.error(f"Could not load balance: {e}")
+            except Exception as e:
+                st.error(f"Could not load balance: {e}")
 
 # 3. Overview Dashboard Tab
 with tab_overview:
@@ -160,10 +177,49 @@ with tab_overview:
                 )
 
             df_all = pd.DataFrame(balances)
-            grand_total = df_all["Net Balance (₹)"].sum()
+            grand_total = (
+                df_all["Net Balance (₹)"].sum() if not df_all.empty else 0.0
+            )
 
             st.dataframe(df_all, use_container_width=True)
             st.metric(
                 label="Overall Net Total (All Sheets)",
                 value=f"₹{grand_total:,.2f}",
             )
+
+# 4. Add User Tab
+with tab_add_user:
+    st.subheader("Add a New Person")
+    new_user_name = st.text_input("Enter Person's Name:").strip().capitalize()
+
+    if st.button("Create Sheet"):
+        if not new_user_name:
+            st.error("Please enter a valid name.")
+        elif new_user_name in all_worksheets:
+            st.warning(f"A sheet for '{new_user_name}' already exists!")
+        else:
+            try:
+                # Create a new sheet with 50 rows and 5 columns
+                new_ws = spreadsheet.add_worksheet(
+                    title=new_user_name, rows=50, cols=5
+                )
+
+                # Set up headers in Row 1
+                headers = [
+                    "Date",
+                    "Owed by me",
+                    "Owed by them",
+                    "Reason",
+                    "Total",
+                ]
+                new_ws.append_row(headers)
+
+                # Set E2 formula to compute: SUM(Owed by them) - SUM(Owed by me)
+                new_ws.update_acell("E2", "=SUM(C2:C) - SUM(B2:B)")
+
+                st.success(
+                    f"Sheet for **{new_user_name}** created successfully with headers and total formula!"
+                )
+                st.rerun()  # Refresh app to update dropdown options
+            except Exception as e:
+                st.error(f"Failed to create sheet: {e}")
